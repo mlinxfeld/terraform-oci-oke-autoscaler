@@ -26,7 +26,7 @@ resource "oci_containerengine_cluster" "FoggyKitchenOKECluster" {
       services_cidr    = lookup(var.network_cidrs, "KUBERNETES-SERVICE-CIDR")
     }
   }
-  defined_tags   = { "oke-${random_id.tag.hex}.autoscaler"= "true" }
+  defined_tags   = { "${oci_identity_tag_namespace.FoggyKitchenClusterTagNamespace.name}.${oci_identity_tag.FoggyKitchenClusterTag.name}" = "true" }
 }
 
 resource "oci_containerengine_node_pool" "FoggyKitchenOKENodePool" {
@@ -61,16 +61,16 @@ resource "oci_containerengine_node_pool" "FoggyKitchenOKENodePool" {
       }
     }
     size = var.node_pool_size
-    defined_tags   = { "oke-${random_id.tag.hex}.autoscaler"= "true" }
-  }
+    defined_tags   = { "${oci_identity_tag_namespace.FoggyKitchenClusterTagNamespace.name}.${oci_identity_tag.FoggyKitchenClusterTag.name}" = "true" }
 
+  }
+  
   initial_node_labels {
     key   = "key"
     value = "value"
   }
 
   ssh_public_key = tls_private_key.public_private_key_pair.public_key_openssh
-  
-  defined_tags   = { "oke-${random_id.tag.hex}.autoscaler"= "true" }
+  defined_tags   = { "${oci_identity_tag_namespace.FoggyKitchenClusterTagNamespace.name}.${oci_identity_tag.FoggyKitchenClusterTag.name}" = "true" }
 }
 
