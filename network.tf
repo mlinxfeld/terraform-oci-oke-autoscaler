@@ -1,301 +1,386 @@
-resource "oci_core_vcn" "FoggyKitchenVCN" {
+resource "oci_core_virtual_network" "FoggyKitchenVCN" {
   provider       = oci.targetregion
-  cidr_block     = var.VCN-CIDR
+  cidr_block     = lookup(var.network_cidrs, "VCN-CIDR")
   compartment_id = oci_identity_compartment.FoggyKitchenCompartment.id
   display_name   = "FoggyKitchenVCN"
-}
-
-resource "oci_core_drg" "FoggyKitchenDRG" {
-  provider       = oci.targetregion
-  compartment_id = oci_identity_compartment.FoggyKitchenCompartment.id
-  display_name   = "FoggyKitchenDRG"
-}
-
-resource "oci_core_drg_attachment" "FoggyKitchenDRGAttachment" {
-  provider     = oci.targetregion
-  drg_id       = oci_core_drg.FoggyKitchenDRG.id
-  vcn_id       = oci_core_vcn.FoggyKitchenVCN.id
-  display_name = "FoggyKitchenDRGAttachment"
-}
-
-resource "oci_core_service_gateway" "FoggyKitchenServiceGateway" {
-  provider       = oci.targetregion
-  compartment_id = oci_identity_compartment.FoggyKitchenCompartment.id
-  display_name   = "FoggyKitchenServiceGateway"
-  vcn_id         = oci_core_vcn.FoggyKitchenVCN.id
-  services {
-    service_id = lookup(data.oci_core_services.FoggyKitchenAllOCIServices.services[0], "id")
-  }
+  dns_label      = "fkvcn"
 }
 
 resource "oci_core_nat_gateway" "FoggyKitchenNATGateway" {
   provider       = oci.targetregion
+  block_traffic  = "false"
   compartment_id = oci_identity_compartment.FoggyKitchenCompartment.id
-  display_name   = "FoggyKitchenNATGateway"
-  vcn_id         = oci_core_vcn.FoggyKitchenVCN.id
-}
-
-resource "oci_core_route_table" "FoggyKitchenRouteTableViaNAT" {
-  provider       = oci.targetregion
-  compartment_id = oci_identity_compartment.FoggyKitchenCompartment.id
-  vcn_id         = oci_core_vcn.FoggyKitchenVCN.id
-  display_name   = "FoggyKitchenRouteTableViaNAT"
-
-  route_rules {
-    destination       = "0.0.0.0/0"
-    destination_type  = "CIDR_BLOCK"
-    network_entity_id = oci_core_nat_gateway.FoggyKitchenNATGateway.id
-  }
-
-  route_rules {
-    destination       = lookup(data.oci_core_services.FoggyKitchenAllOCIServices.services[0], "cidr_block")
-    destination_type  = "SERVICE_CIDR_BLOCK"
-    network_entity_id = oci_core_service_gateway.FoggyKitchenServiceGateway.id
-  }
+  display_name   = "oke-FoggyKitchenNATGateway-gateway"
+  vcn_id         = oci_core_virtual_network.FoggyKitchenVCN.id
 }
 
 resource "oci_core_internet_gateway" "FoggyKitchenInternetGateway" {
   provider       = oci.targetregion
   compartment_id = oci_identity_compartment.FoggyKitchenCompartment.id
   display_name   = "FoggyKitchenInternetGateway"
-  vcn_id         = oci_core_vcn.FoggyKitchenVCN.id
+  enabled        = true
+  vcn_id         = oci_core_virtual_network.FoggyKitchenVCN.id
 }
 
-resource "oci_core_route_table" "FoggyKitchenRouteTableViaIGW" {
+resource "oci_core_service_gateway" "FoggyKitchenServiceGateway" {
   provider       = oci.targetregion
   compartment_id = oci_identity_compartment.FoggyKitchenCompartment.id
-  vcn_id         = oci_core_vcn.FoggyKitchenVCN.id
-  display_name   = "FoggyKitchenRouteTableViaIGW"
+  display_name   = "oke-service-gateway"
+  vcn_id         = oci_core_virtual_network.FoggyKitchenVCN.id
+  services {
+    service_id = lookup(data.oci_core_services.FoggyKitchenAllOCIServices.services[0], "id")
+  }
+}
+
+resource "oci_core_route_table" "FoggyKitchenVCNPrivateRouteTable" {
+  provider       = oci.targetregion
+  compartment_id = oci_identity_compartment.FoggyKitchenCompartment.id
+  vcn_id         = oci_core_virtual_network.FoggyKitchenVCN.id
+  display_name   = "FoggyKitchenVCNPrivateRouteTable"
 
   route_rules {
+    description       = "Traffic to the internet"
+    destination       = "0.0.0.0/0"
+    destination_type  = "CIDR_BLOCK"
+    network_entity_id = oci_core_nat_gateway.FoggyKitchenNATGateway.id
+  }
+  route_rules {
+    description       = "Traffic to OCI services"
+    destination       = lookup(data.oci_core_services.FoggyKitchenAllOCIServices.services[0], "cidr_block")
+    destination_type  = "SERVICE_CIDR_BLOCK"
+    network_entity_id = oci_core_service_gateway.FoggyKitchenServiceGateway.id
+  }
+}
+
+resource "oci_core_route_table" "FoggyKitchenVCNPublicRouteTable" {
+  provider       = oci.targetregion
+  compartment_id = oci_identity_compartment.FoggyKitchenCompartment.id
+  vcn_id         = oci_core_virtual_network.FoggyKitchenVCN.id
+  display_name   = "FoggyKitchenVCNPublicRouteTable"
+
+  route_rules {
+    description       = "Traffic to/from internet"
     destination       = "0.0.0.0/0"
     destination_type  = "CIDR_BLOCK"
     network_entity_id = oci_core_internet_gateway.FoggyKitchenInternetGateway.id
   }
 }
 
-resource "oci_core_security_list" "FoggyKitchenOKESecurityList" {
+resource "oci_core_security_list" "FoggyKitchenOKENodesSecurityList" {
   provider       = oci.targetregion
   compartment_id = oci_identity_compartment.FoggyKitchenCompartment.id
-  display_name   = "FoggyKitchenOKESecurityList"
-  vcn_id         = oci_core_vcn.FoggyKitchenVCN.id
+  display_name   = "FoggyKitchenOKENodesSecurityList"
+  vcn_id         = oci_core_virtual_network.FoggyKitchenVCN.id
 
-  egress_security_rules {
-    protocol    = "All"
-    destination = "0.0.0.0/0"
-  }
-
-  /* This entry is necesary for DNS resolving (open UDP traffic). */
+  # Ingress
   ingress_security_rules {
-    protocol = "17"
-    source   = var.VCN-CIDR
-  }
-}
-
-resource "oci_core_security_list" "FoggyKitchenPrivateKubernetesAPIEndpointSubnetSecurityList" {
-  provider       = oci.targetregion
-  compartment_id = oci_identity_compartment.FoggyKitchenCompartment.id
-  display_name   = "FoggyKitchenPrivateKubernetesAPIEndpointSubnetSecurityList"
-  vcn_id         = oci_core_vcn.FoggyKitchenVCN.id
-
-  # egress_security_rules
-
-  egress_security_rules {
-    protocol         = "6"
-    destination_type = "CIDR_BLOCK"
-    destination      = var.FoggyKitchenK8SNodePoolSubnet-CIDR
+    description = "Allow pods on one worker node to communicate with pods on other worker nodes"
+    source      = lookup(var.network_cidrs, "SUBNET-REGIONAL-CIDR")
+    source_type = "CIDR_BLOCK"
+    protocol    = local.all_protocols
+    stateless   = false
   }
 
-  egress_security_rules {
-    protocol         = 1
-    destination_type = "CIDR_BLOCK"
-    destination      = var.FoggyKitchenK8SNodePoolSubnet-CIDR
+  ingress_security_rules {
+    description = "Inbound SSH traffic to worker nodes"
+    source      = lookup(var.network_cidrs, "VCN-CIDR")
+    source_type = "CIDR_BLOCK"
+    protocol    = local.tcp_protocol_number
+    stateless   = false
 
-    icmp_options {
-      type = 3
-      code = 4
+    tcp_options {
+      max = local.ssh_port_number
+      min = local.ssh_port_number
     }
   }
 
+  ingress_security_rules {
+    description = "TCP access from Kubernetes Control Plane"
+    source      = lookup(var.network_cidrs, "ENDPOINT-SUBNET-REGIONAL-CIDR")
+    source_type = "CIDR_BLOCK"
+    protocol    = local.tcp_protocol_number
+    stateless   = false
+  }
+
+  ingress_security_rules {
+    description = "Path discovery"
+    source      = lookup(var.network_cidrs, "ENDPOINT-SUBNET-REGIONAL-CIDR")
+    source_type = "CIDR_BLOCK"
+    protocol    = local.icmp_protocol_number
+    stateless   = false
+
+    icmp_options {
+      type = "3"
+      code = "4"
+    }
+  }
+
+  # Egress
   egress_security_rules {
-    protocol         = "6"
-    destination_type = "SERVICE_CIDR_BLOCK"
+    description      = "Allow pods on one worker node to communicate with pods on other worker nodes"
+    destination      = lookup(var.network_cidrs, "SUBNET-REGIONAL-CIDR")
+    destination_type = "CIDR_BLOCK"
+    protocol         = local.all_protocols
+    stateless        = false
+  }
+
+  egress_security_rules {
+    description      = "Worker Nodes access to Internet"
+    destination      = lookup(var.network_cidrs, "ALL-CIDR")
+    destination_type = "CIDR_BLOCK"
+    protocol         = local.all_protocols
+    stateless        = false
+  }
+
+  egress_security_rules {
+    description      = "Allow nodes to communicate with OKE to ensure correct start-up and continued functioning"
     destination      = lookup(data.oci_core_services.FoggyKitchenAllOCIServices.services[0], "cidr_block")
-
-    tcp_options {
-      min = 443
-      max = 443
-    }
-  }
-
-  # ingress_security_rules
-
-  ingress_security_rules {
-    protocol = "6"
-    source   = var.FoggyKitchenK8SNodePoolSubnet-CIDR
-
-    tcp_options {
-      min = 6443
-      max = 6443
-    }
-  }
-
-  ingress_security_rules {
-    protocol = "6"
-    source   = var.FoggyKitchenK8SNodePoolSubnet-CIDR
-
-    tcp_options {
-      min = 12250
-      max = 12250
-    }
-  }
-
-  ingress_security_rules {
-    protocol = "6"
-    source   = "0.0.0.0/0"
-
-    tcp_options {
-      min = 6443
-      max = 6443
-    }
-  }
-
-  ingress_security_rules {
-    protocol = 1
-    source   = var.FoggyKitchenK8SNodePoolSubnet-CIDR
-
-    icmp_options {
-      type = 3
-      code = 4
-    }
-  }
-
-}
-
-resource "oci_core_security_list" "FoggyKitchenPrivateKubernetesPrivateWorkerNodesSubnetSecurityList" {
-  provider       = oci.targetregion
-  compartment_id = oci_identity_compartment.FoggyKitchenCompartment.id
-  display_name   = "FoggyKitchenPrivateKubernetesPrivateWorkerNodesSubnetSecurityList"
-  vcn_id         = oci_core_vcn.FoggyKitchenVCN.id
-
-
-  # egress_security_rules
-
-  egress_security_rules {
-    protocol         = "All"
-    destination_type = "CIDR_BLOCK"
-    destination      = var.FoggyKitchenK8SNodePoolSubnet-CIDR
-  }
-
-  egress_security_rules {
-    protocol    = 1
-    destination = "0.0.0.0/0"
-
-    icmp_options {
-      type = 3
-      code = 4
-    }
-  }
-
-  egress_security_rules {
-    protocol         = "6"
     destination_type = "SERVICE_CIDR_BLOCK"
-    destination      = lookup(data.oci_core_services.FoggyKitchenAllOCIServices.services[0], "cidr_block")
-  }
-
-  egress_security_rules {
-    protocol         = "6"
-    destination_type = "CIDR_BLOCK"
-    destination      = var.FoggyKitchenK8SAPIEndPointSubnet-CIDR
+    protocol         = local.tcp_protocol_number
+    stateless        = false
 
     tcp_options {
-      min = 6443
-      max = 6443
+      max = local.https_port_number
+      min = local.https_port_number
     }
   }
 
   egress_security_rules {
-    protocol         = "6"
+    description      = "ICMP Access from Kubernetes Control Plane"
+    destination      = lookup(var.network_cidrs, "ALL-CIDR")
     destination_type = "CIDR_BLOCK"
-    destination      = var.FoggyKitchenK8SAPIEndPointSubnet-CIDR
-
-    tcp_options {
-      min = 12250
-      max = 12250
-    }
-  }
-
-  egress_security_rules {
-    protocol         = "6"
-    destination_type = "CIDR_BLOCK"
-    destination      = "0.0.0.0/0"
-  }
-
-  # ingress_security_rules
-
-  ingress_security_rules {
-    protocol = "All"
-    source   = var.FoggyKitchenK8SNodePoolSubnet-CIDR
-  }
-
-  ingress_security_rules {
-    protocol = "6"
-    source   = var.FoggyKitchenK8SAPIEndPointSubnet-CIDR
-  }
-
-  ingress_security_rules {
-    protocol = 1
-    source   = "0.0.0.0/0"
+    protocol         = local.icmp_protocol_number
+    stateless        = false
 
     icmp_options {
-      type = 3
-      code = 4
+      type = "3"
+      code = "4"
+    }
+  }
+
+  egress_security_rules {
+    description      = "Access to Kubernetes API Endpoint"
+    destination      = lookup(var.network_cidrs, "ENDPOINT-SUBNET-REGIONAL-CIDR")
+    destination_type = "CIDR_BLOCK"
+    protocol         = local.tcp_protocol_number
+    stateless        = false
+
+    tcp_options {
+      max = local.oke_api_endpoint_port_number
+      min = local.oke_api_endpoint_port_number
+    }
+  }
+
+  egress_security_rules {
+    description      = "Kubernetes worker to control plane communication"
+    destination      = lookup(var.network_cidrs, "ENDPOINT-SUBNET-REGIONAL-CIDR")
+    destination_type = "CIDR_BLOCK"
+    protocol         = local.tcp_protocol_number
+    stateless        = false
+
+    tcp_options {
+      max = local.oke_nodes_to_control_plane_port_number
+      min = local.oke_nodes_to_control_plane_port_number
+    }
+  }
+
+  egress_security_rules {
+    description      = "Path discovery"
+    destination      = lookup(var.network_cidrs, "ENDPOINT-SUBNET-REGIONAL-CIDR")
+    destination_type = "CIDR_BLOCK"
+    protocol         = local.icmp_protocol_number
+    stateless        = false
+
+    icmp_options {
+      type = "3"
+      code = "4"
+    }
+  }
+
+}
+
+resource "oci_core_security_list" "FoggyKitchenOKELBSecurityList" {
+  provider       = oci.targetregion
+  compartment_id = oci_identity_compartment.FoggyKitchenCompartment.id
+  display_name   = "FoggyKitchenOKELBSecurityList"
+  vcn_id         = oci_core_virtual_network.FoggyKitchenVCN.id
+}
+
+resource "oci_core_security_list" "FoggyKitchenOKEAPIEndpointSecurityList" {
+  provider       = oci.targetregion
+  compartment_id = oci_identity_compartment.FoggyKitchenCompartment.id
+  display_name   = "FoggyKitchenOKEAPIEndpointSecurityList"
+  vcn_id         = oci_core_virtual_network.FoggyKitchenVCN.id
+
+  # Ingress
+
+  ingress_security_rules {
+    description = "External access to Kubernetes API endpoint"
+    source      = lookup(var.network_cidrs, "ALL-CIDR")
+    source_type = "CIDR_BLOCK"
+    protocol    = local.tcp_protocol_number
+    stateless   = false
+
+    tcp_options {
+      max = local.oke_api_endpoint_port_number
+      min = local.oke_api_endpoint_port_number
     }
   }
 
   ingress_security_rules {
-    protocol = "6"
-    source   = "0.0.0.0/0"
+    description = "Kubernetes worker to Kubernetes API endpoint communication"
+    source      = lookup(var.network_cidrs, "SUBNET-REGIONAL-CIDR")
+    source_type = "CIDR_BLOCK"
+    protocol    = local.tcp_protocol_number
+    stateless   = false
 
     tcp_options {
-      min = 22
-      max = 22
+      max = local.oke_api_endpoint_port_number
+      min = local.oke_api_endpoint_port_number
+    }
+  }
+
+  ingress_security_rules {
+    description = "Kubernetes worker to control plane communication"
+    source      = lookup(var.network_cidrs, "SUBNET-REGIONAL-CIDR")
+    source_type = "CIDR_BLOCK"
+    protocol    = local.tcp_protocol_number
+    stateless   = false
+
+    tcp_options {
+      max = local.oke_nodes_to_control_plane_port_number
+      min = local.oke_nodes_to_control_plane_port_number
+    }
+  }
+
+  ingress_security_rules {
+    description = "Path discovery"
+    source      = lookup(var.network_cidrs, "SUBNET-REGIONAL-CIDR")
+    source_type = "CIDR_BLOCK"
+    protocol    = local.icmp_protocol_number
+    stateless   = false
+
+    icmp_options {
+      type = "3"
+      code = "4"
+    }
+  }
+
+  # Egress
+
+  egress_security_rules {
+    description      = "Allow Kubernetes Control Plane to communicate with OKE"
+    destination      = lookup(data.oci_core_services.FoggyKitchenAllOCIServices.services[0], "cidr_block")
+    destination_type = "SERVICE_CIDR_BLOCK"
+    protocol         = local.tcp_protocol_number
+    stateless        = false
+
+    tcp_options {
+      max = local.https_port_number
+      min = local.https_port_number
+    }
+  }
+
+  egress_security_rules {
+    description      = "All traffic to worker nodes"
+    destination      = lookup(var.network_cidrs, "SUBNET-REGIONAL-CIDR")
+    destination_type = "CIDR_BLOCK"
+    protocol         = local.tcp_protocol_number
+    stateless        = false
+  }
+
+  egress_security_rules {
+    description      = "Path discovery"
+    destination      = lookup(var.network_cidrs, "SUBNET-REGIONAL-CIDR")
+    destination_type = "CIDR_BLOCK"
+    protocol         = local.icmp_protocol_number
+    stateless        = false
+
+    icmp_options {
+      type = "3"
+      code = "4"
     }
   }
 
 }
 
-resource "oci_core_subnet" "FoggyKitchenK8SAPIEndPointSubnet" {
-  provider       = oci.targetregion
-  cidr_block     = var.FoggyKitchenK8SAPIEndPointSubnet-CIDR
-  compartment_id = oci_identity_compartment.FoggyKitchenCompartment.id
-  vcn_id         = oci_core_vcn.FoggyKitchenVCN.id
-  display_name   = "FoggyKitchenK8SAPIEndPointSubnet"
-
-  security_list_ids          = [oci_core_vcn.FoggyKitchenVCN.default_security_list_id, oci_core_security_list.FoggyKitchenPrivateKubernetesAPIEndpointSubnetSecurityList.id]
-  route_table_id             = oci_core_route_table.FoggyKitchenRouteTableViaIGW.id
+resource "oci_core_network_security_group" "FoggyKitchenNSG" {
+    provider       = oci.targetregion
+    compartment_id = oci_identity_compartment.FoggyKitchenCompartment.id
+    vcn_id         = oci_core_virtual_network.FoggyKitchenVCN.id
 }
 
-resource "oci_core_subnet" "FoggyKitchenK8SLBSubnet" {
-  provider       = oci.targetregion
-  cidr_block     = var.FoggyKitchenK8SLBSubnet-CIDR
-  compartment_id = oci_identity_compartment.FoggyKitchenCompartment.id
-  vcn_id         = oci_core_vcn.FoggyKitchenVCN.id
-  display_name   = "FoggyKitchenK8SLBSubnet"
+resource "oci_core_network_security_group_security_rule" "FoggyKitchenNSGRule6443" {
+    provider                  = oci.targetregion
+    network_security_group_id = oci_core_network_security_group.FoggyKitchenNSG.id
+    direction                 = "INGRESS"
+    protocol                  = "6"
 
-  security_list_ids          = [oci_core_vcn.FoggyKitchenVCN.default_security_list_id]
-  route_table_id             = oci_core_route_table.FoggyKitchenRouteTableViaIGW.id
+    source                    = "0.0.0.0/0"
+    source_type               = "CIDR_BLOCK"
+    stateless                 = false
+    tcp_options {
+        destination_port_range {
+            max = "6443"
+            min = "6443"
+        }
+    }
 }
 
-resource "oci_core_subnet" "FoggyKitchenK8SNodePoolSubnet" {
-  provider       = oci.targetregion
-  cidr_block     = var.FoggyKitchenK8SNodePoolSubnet-CIDR
-  compartment_id = oci_identity_compartment.FoggyKitchenCompartment.id
-  vcn_id         = oci_core_vcn.FoggyKitchenVCN.id
-  display_name   = "FoggyKitchenK8SNodePoolSubnet"
+resource "oci_core_network_security_group_security_rule" "FoggyKitchenNSGRule12250" {
+    provider                  = oci.targetregion
+    network_security_group_id = oci_core_network_security_group.FoggyKitchenNSG.id
+    direction                 = "INGRESS"
+    protocol                  = "6"
 
-  security_list_ids          = [oci_core_vcn.FoggyKitchenVCN.default_security_list_id, oci_core_security_list.FoggyKitchenPrivateKubernetesPrivateWorkerNodesSubnetSecurityList.id]
-  route_table_id             = oci_core_route_table.FoggyKitchenRouteTableViaNAT.id
+    source                    = "0.0.0.0/0"
+    source_type               = "CIDR_BLOCK"
+    stateless                 = false
+    tcp_options {
+        destination_port_range {
+            max = "12250"
+            min = "12250"
+        }
+    }
+}
+
+resource "oci_core_subnet" "FoggyKitchenOKEAPIEndpointSubnet" {
+  provider                   = oci.targetregion
+  cidr_block                 = lookup(var.network_cidrs, "ENDPOINT-SUBNET-REGIONAL-CIDR")
+  compartment_id             = oci_identity_compartment.FoggyKitchenCompartment.id
+  display_name               = "FoggyKitchenOKEAPIEndpointSubnet"
+  dns_label                  = "endpsub"
+  vcn_id                     = oci_core_virtual_network.FoggyKitchenVCN.id
+  prohibit_public_ip_on_vnic = false
+  route_table_id             = oci_core_route_table.FoggyKitchenVCNPublicRouteTable.id
+  dhcp_options_id            = oci_core_virtual_network.FoggyKitchenVCN.default_dhcp_options_id
+  security_list_ids          = [oci_core_security_list.FoggyKitchenOKEAPIEndpointSecurityList.id]
+}
+
+resource "oci_core_subnet" "FoggyKitchenOKENodesSubnet" {
+  provider                   = oci.targetregion
+  cidr_block                 = lookup(var.network_cidrs, "SUBNET-REGIONAL-CIDR")
+  compartment_id             = oci_identity_compartment.FoggyKitchenCompartment.id
+  display_name               = "FoggyKitchenOKENodesSubnet"
+  dns_label                  = "nodessub"
+  vcn_id                     = oci_core_virtual_network.FoggyKitchenVCN.id
   prohibit_public_ip_on_vnic = true
+  route_table_id             = oci_core_route_table.FoggyKitchenVCNPrivateRouteTable.id
+  dhcp_options_id            = oci_core_virtual_network.FoggyKitchenVCN.default_dhcp_options_id
+  security_list_ids          = [oci_core_security_list.FoggyKitchenOKENodesSecurityList.id]
 }
+
+resource "oci_core_subnet" "FoggyKitchenOKELBSubnet" {
+  provider                   = oci.targetregion
+  cidr_block                 = lookup(var.network_cidrs, "LB-SUBNET-REGIONAL-CIDR")
+  compartment_id             = var.compartment_ocid
+  display_name               = "FoggyKitchenOKELBSubnet"
+  dns_label                  = "lbsub"
+  vcn_id                     = oci_core_virtual_network.FoggyKitchenVCN.id
+  prohibit_public_ip_on_vnic = false
+  route_table_id             = oci_core_route_table.FoggyKitchenVCNPublicRouteTable.id
+  dhcp_options_id            = oci_core_virtual_network.FoggyKitchenVCN.default_dhcp_options_id
+  security_list_ids          = [oci_core_security_list.FoggyKitchenOKELBSecurityList.id]
+}
+
 

@@ -17,30 +17,6 @@ variable "VCN-CIDR" {
   default = "10.0.0.0/16"
 }
 
-variable "cluster_options_kubernetes_network_config_pods_cidr" {
-  default = "10.1.0.0/16"
-}
-
-variable "cluster_options_kubernetes_network_config_services_cidr" {
-  default = "10.2.0.0/16"
-}
-
-variable "FoggyKitchenBastionSubnet-CIDR" {
-  default = "10.0.1.0/24"
-}
-
-variable "FoggyKitchenK8SAPIEndPointSubnet-CIDR" {
-  default = "10.0.2.0/24"
-}
-
-variable "FoggyKitchenK8SLBSubnet-CIDR" {
-  default = "10.0.3.0/24"
-}
-
-variable "FoggyKitchenK8SNodePoolSubnet-CIDR" {
-  default = "10.0.4.0/24"
-}
-
 variable "node_pool_quantity_per_subnet" {
   default = 2
 }
@@ -61,16 +37,16 @@ variable "linux_os_version" {
   default = "7.9"
 }
 
-variable "Shape" {
-  default = "VM.Standard.A1.Flex"
+variable "shape" {
+  default = "VM.Standard.E4.Flex"
 }
 
-variable "Flex_shape_memory" {
-  default = 6
+variable "flex_shape_memory" {
+  default = 16
 }
 
-variable "Flex_shape_ocpus" {
-  default = 1
+variable "flex_shape_ocpus" {
+  default = 2
 }
 
 variable "ClusterName" {
@@ -85,26 +61,17 @@ variable "max_number_of_nodes" {
   default = 10
 }
 
-# Dictionary Locals
-locals {
-  compute_flexible_shapes = [
-    "VM.Standard.E3.Flex",
-    "VM.Standard.E4.Flex",
-    "VM.Standard.A1.Flex",
-    "VM.Optimized3.Flex"
-  ]
-}
+variable "network_cidrs" {
+  type = map(string)
 
-# Checks if is using Flexible Compute Shapes
-locals {
-  is_flexible_node_shape    = contains(local.compute_flexible_shapes, var.Shape)
-}
-
-locals {
-  # List with supported autoscaler images: https://docs.oracle.com/en-us/iaas/Content/ContEng/Tasks/contengusingclusterautoscaler.htm
-  autoscaler_image = {
-    "v1.22.5" = "fra.ocir.io/oracle/oci-cluster-autoscaler:1.22.2-4",
-    "v1.23.5" = "fra.ocir.io/oracle/oci-cluster-autoscaler:1.23.0-4"
+  default = {
+    VCN-CIDR                      = "10.20.0.0/16"
+    SUBNET-REGIONAL-CIDR          = "10.20.10.0/24"
+    LB-SUBNET-REGIONAL-CIDR       = "10.20.20.0/24"
+    ENDPOINT-SUBNET-REGIONAL-CIDR = "10.20.0.0/28"
+    ALL-CIDR                      = "0.0.0.0/0"
+    PODS-CIDR                     = "10.244.0.0/16"
+    KUBERNETES-SERVICE-CIDR       = "10.96.0.0/16"
   }
 }
 

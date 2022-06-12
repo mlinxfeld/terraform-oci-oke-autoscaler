@@ -6,7 +6,7 @@ resource "oci_identity_dynamic_group" "FoggyKitchenInstancePrincipalDynamicGroup
   provider       = oci.homeregion
   compartment_id = var.tenancy_ocid
   description    = "Dynamic Group for OKE Nodes/OKE Cluster"
-  matching_rule  = "ALL {instance.compartment.id = '${var.compartment_ocid}', tag.oke-${random_id.tag.hex}.autoscaler.value = 'true'}"
+  matching_rule  = "ALL {instance.compartment.id = '${oci_identity_compartment.FoggyKitchenCompartment.id}', tag.oke-${random_id.tag.hex}.autoscaler.value = 'true'}"
   name           = "FoggyKitchenInstancePrincipalDynamicGroup-${random_id.tag.hex}"
 }
 

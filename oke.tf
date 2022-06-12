@@ -5,15 +5,16 @@ resource "oci_containerengine_cluster" "FoggyKitchenOKECluster" {
   compartment_id     = oci_identity_compartment.FoggyKitchenCompartment.id
   kubernetes_version = var.kubernetes_version
   name               = var.ClusterName
-  vcn_id             = oci_core_vcn.FoggyKitchenVCN.id
+  vcn_id             = oci_core_virtual_network.FoggyKitchenVCN.id
 
   endpoint_config {
     is_public_ip_enabled = true
-    subnet_id            = oci_core_subnet.FoggyKitchenK8SAPIEndPointSubnet.id
+    subnet_id            = oci_core_subnet.FoggyKitchenOKEAPIEndpointSubnet.id
+    nsg_ids              = [oci_core_network_security_group.FoggyKitchenNSG.id]
   }
 
   options {
-    service_lb_subnet_ids = [oci_core_subnet.FoggyKitchenK8SLBSubnet.id]
+    service_lb_subnet_ids = [oci_core_subnet.FoggyKitchenOKELBSubnet.id]
 
     add_ons {
       is_kubernetes_dashboard_enabled = true
@@ -21,15 +22,11 @@ resource "oci_containerengine_cluster" "FoggyKitchenOKECluster" {
     }
 
     kubernetes_network_config {
-      pods_cidr     = var.cluster_options_kubernetes_network_config_pods_cidr
-      services_cidr = var.cluster_options_kubernetes_network_config_services_cidr
+      pods_cidr        = lookup(var.network_cidrs, "PODS-CIDR")
+      services_cidr    = lookup(var.network_cidrs, "KUBERNETES-SERVICE-CIDR")
     }
   }
-}
-
-locals {
-  all_sources         = data.oci_containerengine_node_pool_option.FoggyKitchenOKEClusterNodePoolOption.sources
-  oracle_linux_images = [for source in local.all_sources : source.image_id if length(regexall("Oracle-Linux-[0-9]*.[0-9]*-20[0-9]*", source.source_name)) > 0]
+  defined_tags   = { "oke-${random_id.tag.hex}.autoscaler"= "true" }
 }
 
 resource "oci_containerengine_node_pool" "FoggyKitchenOKENodePool" {
@@ -39,7 +36,7 @@ resource "oci_containerengine_node_pool" "FoggyKitchenOKENodePool" {
   compartment_id     = oci_identity_compartment.FoggyKitchenCompartment.id
   kubernetes_version = var.kubernetes_version
   name               = "FoggyKitchenOKENodePool"
-  node_shape         = var.Shape
+  node_shape         = var.shape
 
   node_source_details {
     image_id    = data.oci_core_images.InstanceImageOCID.images[0].id
@@ -49,8 +46,8 @@ resource "oci_containerengine_node_pool" "FoggyKitchenOKENodePool" {
   dynamic "node_shape_config" {
     for_each = local.is_flexible_node_shape ? [1] : []
     content {
-      memory_in_gbs = var.Flex_shape_memory
-      ocpus         = var.Flex_shape_ocpus
+      memory_in_gbs = var.flex_shape_memory
+      ocpus         = var.flex_shape_ocpus
     }
   }
 
@@ -60,10 +57,11 @@ resource "oci_containerengine_node_pool" "FoggyKitchenOKENodePool" {
       for_each = data.oci_identity_availability_domains.ADs.availability_domains
       content {
         availability_domain = pc_iter.value.name
-        subnet_id           = oci_core_subnet.FoggyKitchenK8SNodePoolSubnet.id
+        subnet_id           = oci_core_subnet.FoggyKitchenOKENodesSubnet.id
       }
     }
     size = var.node_pool_size
+    defined_tags   = { "oke-${random_id.tag.hex}.autoscaler"= "true" }
   }
 
   initial_node_labels {
