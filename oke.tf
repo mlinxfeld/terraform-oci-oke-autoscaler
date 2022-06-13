@@ -4,7 +4,7 @@ resource "oci_containerengine_cluster" "FoggyKitchenOKECluster" {
   depends_on         = [oci_identity_policy.FoggyKitchenOKEClusterAutoscalerPolicy1, oci_identity_policy.FoggyKitchenOKEClusterAutoscalerPolicy2]
   compartment_id     = oci_identity_compartment.FoggyKitchenCompartment.id
   kubernetes_version = var.kubernetes_version
-  name               = var.ClusterName
+  name               = var.cluster_name
   vcn_id             = oci_core_virtual_network.FoggyKitchenVCN.id
 
   endpoint_config {

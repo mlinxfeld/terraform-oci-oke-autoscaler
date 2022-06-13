@@ -13,14 +13,6 @@ variable "ssh_public_key" {
   default = ""
 }
 
-variable "VCN-CIDR" {
-  default = "10.0.0.0/16"
-}
-
-variable "node_pool_quantity_per_subnet" {
-  default = 2
-}
-
 variable "kubernetes_version" {
   default = "v1.22.5"
 }
@@ -49,7 +41,7 @@ variable "flex_shape_ocpus" {
   default = 2
 }
 
-variable "ClusterName" {
+variable "cluster_name" {
   default = "FoggyKitchenOKECluster"
 }
 

@@ -20,9 +20,9 @@ locals {
   # List with supported autoscaler images: https://docs.oracle.com/en-us/iaas/Content/ContEng/Tasks/contengusingclusterautoscaler.htm
   autoscaler_image = {
     "v1.22.5" = "fra.ocir.io/oracle/oci-cluster-autoscaler:1.22.2-4",
-    "v1.23.5" = "fra.ocir.io/oracle/oci-cluster-autoscaler:1.23.0-4",
+    "v1.23.4" = "fra.ocir.io/oracle/oci-cluster-autoscaler:1.23.0-4",
     "v1.22.5" = "iad.ocir.io/oracle/oci-cluster-autoscaler:1.22.2-4",
-    "v1.23.5" = "iad.ocir.io/oracle/oci-cluster-autoscaler:1.23.0-4",
+    "v1.23.4" = "iad.ocir.io/oracle/oci-cluster-autoscaler:1.23.0-4",
   }
 
   all_sources         = data.oci_containerengine_node_pool_option.FoggyKitchenOKEClusterNodePoolOption.sources
