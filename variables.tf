@@ -14,23 +14,21 @@ variable "ssh_public_key" {
 }
 
 variable "kubernetes_version" {
-  default = "v1.22.5"
+  default = "v1.23.4"
 }
 
 variable "node_pool_size" {
   default = 3
 }
 
-variable "instance_os" {
-  default = "Oracle Linux"
-}
-
-variable "linux_os_version" {
-  default = "7.9"
-}
-
-variable "shape" {
+variable "oke_node_shape" {
   default = "VM.Standard.E4.Flex"
+}
+
+variable "oke_node_os_version" {
+  default = "8.6"
+  #default = "8.5"
+  #default = "7.9"
 }
 
 variable "flex_shape_memory" {
