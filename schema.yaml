@@ -1,6 +1,3 @@
-# Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved.
-# Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
-
 title: "Terraform OCI Container Engine for Kubernetes (aka OCI OKE) with Autoscaler"
 description: "FoggyKitchen.com - Terraform OCI Container Engine for Kubernetes (aka OCI OKE) with Autoscaler."
 stackDescription: "FoggyKitchen.com - Terraform OKE Container Engine for Kubernetes (aka OCI OKE) with Autoscaler."
@@ -35,9 +32,10 @@ variableGroups:
   variables:
   - kubernetes_version
   - ssh_public_key
-  - shape
+  - oke_node_shape
   - flex_shape_memory
   - flex_shape_ocpus
+  - oke_node_os_version
   - cluster_name
 
 - title: "OKE Autoscaler Optional Configuration"
@@ -108,10 +106,9 @@ variables:
     default: "v1.23.4"
     required: false
     enum: 
+      - "v1.24.1"
       - "v1.23.4"
       - "v1.22.5"
-      - "v1.20.11"
-      - "v1.20.8"
 
   min_number_of_nodes:
     type: number
@@ -133,7 +130,7 @@ variables:
     title: "What is maximum number of K8S Nodes?"
     description: "Choose number of K8S Nodes to be deployed at maximum by Autoscaler."
 
-  shape:
+  oke_node_shape:
     type: oci:core:instanceshape:name
     title: "K8S Nodes Shape"
     description: "Choose a shape for your K8S nodes"
@@ -155,16 +152,16 @@ variables:
       and:
         - or:
           - eq:
-            - shape 
+            - oke_node_shape 
             - "VM.Standard.E3.Flex"
           - eq:
-            - shape 
+            - oke_node_shape 
             - "VM.Standard.E4.Flex"
           - eq:
-            - shape 
+            - oke_node_shape 
             - "VM.Standard.A1.Flex"
           - eq:
-            - shape 
+            - oke_node_shape 
             - "VM.Optimized3.Flex"
 
   flex_shape_memory:
@@ -180,16 +177,16 @@ variables:
       and:
         - or:
           - eq:
-            - shape 
+            - oke_node_shape 
             - "VM.Standard.E3.Flex"
           - eq:
-            - shape
+            - oke_node_shape
             - "VM.Standard.E4.Flex"
           - eq:
-            - shape 
+            - oke_node_shape 
             - "VM.Standard.A1.Flex"
           - eq:
-            - shape 
+            - oke_node_shape 
             - "VM.Optimized3.Flex"
 
   ssh_public_key:
@@ -204,25 +201,17 @@ variables:
     description: "Choose K8S Cluster Name"
     required: false
 
-  instance_os:
+  oke_node_os_version:
     type: enum
     required: false
     visible: true
-    title: "Instance OS"
-    description: "Choose Operating System that determines the operating system for Webserver host."
-    default: "Oracle Linux"
-    enum:
-      - "Oracle Linux"
-
-  linux_os_version:
-    type: enum
-    required: false
-    visible: true
-    title: "Instance OS version"
-    description: "Choose Operating System version that determines the operating system version for Webserver host."
-    default: "7.9"
+    title: "OKE Node OS version"
+    description: "Choose Operating System version that determines the operating system version for OKE Nodes."
+    default: "8.6"
     enum:
       - "7.9"  
+      - "8.5"
+      - "8.6"
 
 outputs:
 
