@@ -22,21 +22,23 @@ variable "node_pool_size" {
 }
 
 variable "oke_node_shape" {
-  default = "VM.Standard.E4.Flex"
+  default = "VM.Standard.A1.Flex"
 }
 
 variable "oke_node_os_version" {
   default = "8.6"
-  #default = "8.5"
-  #default = "7.9"
 }
 
 variable "flex_shape_memory" {
-  default = 16
+  default = 6
 }
 
 variable "flex_shape_ocpus" {
-  default = 2
+  default = 1
+}
+
+variable "oke_node_boot_volume_size_in_gbs" {
+  default = 50
 }
 
 variable "cluster_name" {
